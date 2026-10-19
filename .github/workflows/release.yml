@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - bootstrap.js
+      - manifest.json
+      - LICENSE
+      - scripts/build.ps1
+      - .github/workflows/release.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content -Raw manifest.json | ConvertFrom-Json).version
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Check syntax and policy
+        run: |
+          node --check bootstrap.js
+          node test/test.js
+      - name: Build reproducible XPI
+        shell: pwsh
+        run: ./scripts/build.ps1
+      - name: Publish release if missing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $tag = "v$env:VERSION"
+          if (gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null) {
+              Write-Host "$tag already exists; nothing to publish."
+              exit 0
+          }
+
+          $package = "dist/zotero-excel-column-resize-$env:VERSION.xpi"
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $package).Hash.ToLowerInvariant()
+          $updates = Get-Content -Raw updates.json | ConvertFrom-Json
+          $updates.addons.'excel-like-column-resize@local.codex'.updates[0].update_hash = "sha256:$hash"
+          $updates | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8NoBOM updates.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add updates.json
+          if (-not (git diff --cached --quiet)) {
+              git commit -m "Update release checksum for $tag"
+              git push
+          }
+
+          gh release create $tag $package `
+            --repo $env:GITHUB_REPOSITORY `
+            --target main `
+            --title "Excel-like Column Resize $tag" `
+            --notes "Zotero 10.0.x plugin. This release fixes runtime matching for the main library item tree and keeps the patch limited to that view."
+
