@@ -5,7 +5,7 @@
         {
           "version": "0.1.2",
           "update_link": "https://github.com/Ning703/zotero-excel-column-resize/releases/download/v0.1.2/zotero-excel-column-resize-0.1.2.xpi",
-          "update_hash": "sha256:e98d1d281a4600dd1f91e09722c8427c9884d09d7f904d20d69e95af219febf2",
+          "update_hash": "sha256:9b2339033d9286bd7eaa9db2e6a7c8d462c1de5899a0e5e0d7e9e5cd53777cb7",
           "applications": {
             "zotero": {
               "strict_min_version": "10.0",
@@ -17,3 +17,4 @@
     }
   }
 }
+
